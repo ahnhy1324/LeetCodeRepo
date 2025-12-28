@@ -1,0 +1,44 @@
+Plan.txt
+Problem10
+
+규칙
+1 <= capacity <= 3000
+
+0 <= key   <= 10000   
+0 <= value <= 100000 
+At most 200000 calls will be made to get and put.
+
+LRUCache(int capacity) Initialize the LRU cache with positive size capacity.
+capacity 는 양수
+int get(int key) Return the value of the key if the key exists, otherwise return -1.
+키가 존재한다면 양수
+void put(int key, int value) Update the value of the key if the key exists. 
+Otherwise, add the key-value pair to the cache. If the number of keys exceeds the capacity from this operation, evict the least recently used key.
+키가 있다면 값을 업데이트
+아니라면 추가.
+키의 크기가 최대라면 가장 마지막에 사용된 키로 업데이트
+
+The functions get and put must each run in O(1) average time complexity.
+복잡도 o(1)
+
+카운터는 Short(2Byte로 충분함 / 혹은 링 리스트)
+value는 int
+
+4 * 3000 : 12000 = 12kbyte
+4 * 3000 * 3000 = 36Mbytes
+
+mod인 경우 Key 충돌 : 10000 / capacity ( 최악 )
+
+Key만큼 Static Pointer (12kbytes)
+
+plan1 
+cache controller
+카운터 : 현재 키 개수
+Least used Pointer
+
+
+
+cache List
+Pointer pHead
+Pointer pTail
+Pointer DataPoint(Key)

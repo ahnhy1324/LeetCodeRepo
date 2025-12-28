@@ -1,10 +1,10 @@
 Branch for each code. and merge
 2025-12-09 : first init.
-2025-12-09 : Problem 1925 Sucess
+2025-12-09 : Problem 25 Sucess
 2025-12-10 : Problem 1925 Sucess
+2025-12-28 : Problem 146 Success
 TODO
 1. Problem 10 Solving
-2. Problem 146 Solving
 3. Problem 1925 Make More Faster
 
 ---------------------------------------------------------------------

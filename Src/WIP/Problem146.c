@@ -31,106 +31,152 @@ At most 2 * 10^5 calls will be made to get and put
 */
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h> 
+#define MIN_CAPACITY (1)
+#define MAX_CAPACITY (3000)
+#define MAX_KEY      (10000)
+#define FAULT        (-1)
+#define CLIP_CAPACITY(X)       X>MAX_CAPACITY? MAX_CAPACITY : X    
 
+typedef struct  CacheList{
+    struct CacheList * pHead;
+    struct CacheList * pTail;
+    int Key;
+}CacheList_t;
+typedef struct{
+    int data;
+    CacheList_t * backward;
+}storage_t;
 typedef struct {
-    int gCapacity;
-    unsigned int *key;
-    unsigned int *Value;
-    unsigned int *RecentlyUsedIndex;
+    int MaxCapacity;
+    int SetCounter;
+    CacheList_t * Root;
+    CacheList_t * LastUsed;
+    storage_t * storage;
 } LRUCache;
 
-LRUCache* lRUCacheCreate(int capacity) {
-    LRUCache* pResult = NULL;
-    if( capacity <=0 )
+/// @brief Init and Malloc Key Table
+/// @param pCache 
+/// @param Capacity 
+void InitCache( LRUCache* pCache, int Capacity)
+{
+    if( pCache != NULL)
     {
-        //do nothing
-    }
-    else 
-    {
-        if( capacity > 3000) capacity = 3000;//clip to max capacity
-        pResult = malloc(sizeof(LRUCache));
-        pResult->gCapacity = capacity;
-        pResult->key = malloc( sizeof(unsigned int) * capacity);
-        pResult->Value = malloc( sizeof(unsigned int) * capacity);
-        pResult->RecentlyUsedIndex = malloc( sizeof(unsigned int) * capacity);
-        for( int i =0; i< capacity; i++)
+        memset(pCache , 0, sizeof(LRUCache));//초기화
+        pCache->MaxCapacity = Capacity;
+        pCache->storage = (storage_t *)malloc((sizeof(storage_t)) * (MAX_KEY+1));
+        if(pCache->storage != NULL){
+            for( int i = 0 ; i < MAX_KEY+1; i++)
+            {
+                pCache->storage[i].data = FAULT;
+                pCache->storage[i].backward = NULL;
+            }
+        }
+        pCache->Root = (CacheList_t *)malloc(sizeof(CacheList_t)*Capacity);
+        if(pCache->Root!= NULL)
         {
-            pResult->key[i] = 0xFFFFFFFF;
-            pResult->Value[i] = 0;
-            pResult->RecentlyUsedIndex[i] = 0;
+            pCache->LastUsed = pCache->Root;
+            for(int nCapacityIndex = 1 ; nCapacityIndex < Capacity; nCapacityIndex++)
+            {
+                pCache->Root[nCapacityIndex].Key=-1;
+                pCache->Root[nCapacityIndex].pHead = &(pCache->Root[nCapacityIndex-1]);
+                pCache->Root[nCapacityIndex].pTail = &(pCache->Root[nCapacityIndex+1]);
+            }
+            pCache->Root[0].pHead = &pCache->Root[Capacity-1];
+            pCache->Root[0].Key=-1;
+            if(Capacity>1)
+            {
+                pCache->Root[0].pTail = &(pCache->Root[1]);
+            }
+            pCache->Root[Capacity-1].pTail = NULL;
+            pCache->Root[Capacity-1].Key = -1;
         }
     }
-    return pResult;
 }
 
-int lRUCacheGet(LRUCache* obj, int key) {
-    int result = -1;
-    if( obj->gCapacity <=0 || obj == NULL)
+/// @brief Create Cache
+/// @param int capacity ( Min : 1 Max: 3000) 
+/// @return LRU Cache* Result
+LRUCache* lRUCacheCreate(int capacity) {
+    LRUCache * Result = NULL;
+    if( capacity>= MIN_CAPACITY)
     {
-       // do nothing
+        Result = (LRUCache*)malloc( sizeof(LRUCache));
+        InitCache(Result,CLIP_CAPACITY(capacity));
     }
-    else
+    return Result;
+}
+
+void lRUCacheUpdate( LRUCache* obj , int key )
+{
+    if(obj->storage[key].backward!=NULL)
     {
-        if( obj->key != NULL && obj->Value != NULL)
-        {
-            int index = 0 ;
-            index = key% obj->gCapacity;
-            for( int i =0; i< obj->gCapacity; i++)
+       CacheList_t * pTmpList = pTmpList = obj->storage[key].backward;
+       if(pTmpList->pTail==NULL );//가장 최근 사용된 노드인경우
+       else
+       {
+            CacheList_t * pLast =obj->LastUsed[0].pHead;  // 가장 최근 노드
+            pLast->pTail = obj->storage[key].backward;//제일 최근 사용된 노드에 추가.
+            
+            if(obj->storage[key].backward == obj->LastUsed)//제일 마지막 사용된 노드면
             {
-                if( obj->RecentlyUsedIndex[i] < 0xFFFFFFFF)obj->RecentlyUsedIndex[i]++;
+                obj->LastUsed = obj->LastUsed[0].pTail;//마지막 사용된 노드 업데이트
+
             }
-            for( int i =0; i< obj->gCapacity; i++)
+            else
             {
-                if( obj->key[( index + i ) % obj->gCapacity ] == key)
-                {
-                    result = obj->Value[( index + i ) % obj->gCapacity];
-                    obj->RecentlyUsedIndex[( index + i ) % obj->gCapacity] = 0; 
-                    break;
-                }
+                (pTmpList->pTail)->pHead = pTmpList->pHead;
+                (pTmpList->pHead)->pTail = pTmpList->pTail;//최근 사용된 노드 앞뒤에 있는 노드 붙이기.
             }
-        }
+            pTmpList->pHead = pLast;
+            pTmpList->pTail = NULL;
+            obj->LastUsed[0].pHead = pTmpList;
+       }
+    }
+    return;
+}
+
+
+int lRUCacheGet(LRUCache* obj, int key) {
+    int result = FAULT;
+    if(obj == NULL) return result;
+    if((key>FAULT)&&(key<=MAX_KEY))
+    {
+        result = obj->storage[key].data;
+        if(obj->storage[key].data != FAULT)lRUCacheUpdate(obj,key);
     }
     return result;
 }
 
 void lRUCachePut(LRUCache* obj, int key, int value) {
-    int MaxIndex = 0;
-    int skipflg= 0;
-    for( int i =0; i< obj->gCapacity; i++)
-    {
-        if( obj->RecentlyUsedIndex[i] < 0xFFFFFFFF)obj->RecentlyUsedIndex[i]++;
-        if( obj->key[i] == key)
+    if(obj!=NULL){
+        if((obj->Root!=NULL)&&(obj->storage!=NULL)&&(obj->LastUsed!=NULL))
         {
-            obj->Value[i] = value;
-            obj->RecentlyUsedIndex[i] = 0;
-            skipflg = 1;
-        }
-    }
-    if (skipflg == 1)
-    {
-        /* code */
-    }
-    else
-    {
-        for( int i = 0; i< obj->gCapacity; i++)
-        {
-            if( obj->RecentlyUsedIndex[i] > obj->RecentlyUsedIndex[MaxIndex])
+            if( obj->storage[key].data!=-1)
             {
-                MaxIndex = i;
+                obj->storage[key].data = value;
             }
+            else
+            {
+                if(obj->LastUsed[0].Key > FAULT)
+                {
+                    obj->storage[obj->LastUsed[0].Key].data = -1;
+                    obj->storage[obj->LastUsed[0].Key].backward = NULL;
+                }
+                obj->LastUsed[0].Key = key;
+                obj->storage[obj->LastUsed[0].Key].data = value;
+                obj->storage[obj->LastUsed[0].Key].backward = obj->LastUsed;
+            }
+            lRUCacheUpdate(obj,key);
         }
-        obj->key[MaxIndex] = key;
-        obj->Value[MaxIndex] = value;
-        obj->RecentlyUsedIndex[MaxIndex] = 0;
     }
 }
 
 void lRUCacheFree(LRUCache* obj) {
-    if( obj != NULL)
-    {
-        free(obj);
-        obj = NULL;
-    }
+    if(obj == NULL) return;
+    free(obj->Root);
+    free(obj->storage);
+    free(obj);
     return;
 }
 
